@@ -1,83 +1,284 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sensor Status | ZLD Monitoring</title>
+    <title>Hardware Diagnostics | ZLD SCADA</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
   <body>
+    <!-- Topbar Navigation -->
     <header class="topbar">
-      <div class="brand-wrap">
-        <div class="brand-icon">Z</div>
-        <div>
-          <h1>ZLD Monitoring</h1>
-          <p>Sensor connection and health status</p>
-        </div>
+      <div class="topbar-left">
+        <a class="brand-wrap" href="/">
+          <div class="brand-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+            </svg>
+            <span class="brand-pulse-dot" id="headerPulseDot"></span>
+          </div>
+          <div class="brand-text">
+            <div class="brand-title">
+              <h1>ZLD SCADA</h1>
+              <span class="badge-tech">DIAGNOSTICS</span>
+            </div>
+            <p>Sensor Hardware Integrity &amp; Pinout Verification</p>
+          </div>
+        </a>
       </div>
+
       <nav class="nav-menu" aria-label="Main navigation">
-        <a href="/">Dashboard</a>
-        <a href="/sensor-status" aria-current="page">Sensor Status</a>
+        <a href="/">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          Dashboard
+        </a>
+        <a href="/sensor-status" class="active" aria-current="page">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+          Sensor Diagnostics
+        </a>
       </nav>
+
+      <div class="topbar-actions">
+        <!-- Palette Picker -->
+        <div class="palette-picker" id="palettePicker">
+          <button id="paletteBtn" class="btn-palette" type="button" title="Select Color Palette" aria-label="Select Color Palette">
+            <span class="palette-swatch-preview"></span>
+            <span class="palette-label">Palette</span>
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div id="paletteDropdown" class="palette-dropdown hidden">
+            <button class="palette-option active" data-palette="ocean" type="button">
+              <span class="palette-swatch" style="background: linear-gradient(135deg, #2dd4bf, #38bdf8);"></span>
+              <span>Nordic Ocean</span>
+            </button>
+            <button class="palette-option" data-palette="emerald" type="button">
+              <span class="palette-swatch" style="background: linear-gradient(135deg, #10b981, #00f5d4);"></span>
+              <span>Bio Emerald</span>
+            </button>
+            <button class="palette-option" data-palette="cyber" type="button">
+              <span class="palette-swatch" style="background: linear-gradient(135deg, #f59e0b, #eab308);"></span>
+              <span>Industrial Volt</span>
+            </button>
+            <button class="palette-option" data-palette="cobalt" type="button">
+              <span class="palette-swatch" style="background: linear-gradient(135deg, #6366f1, #60a5fa);"></span>
+              <span>Royal Cobalt</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Theme Toggle -->
+        <button id="themeToggle" class="btn-icon" type="button" title="Switch Theme (Dark/Light)" aria-label="Switch Theme">
+          <svg id="themeIconSun" class="hidden" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+          <svg id="themeIconMoon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+      </div>
     </header>
 
     <main class="container">
+      <!-- Diagnostics Hero -->
       <section class="panel hero-panel">
         <div class="hero-header">
-          <div>
-            <span class="eyebrow">Hardware diagnostics</span>
-            <h2>Sensor connection status</h2>
+          <div class="hero-title-group">
+            <span class="eyebrow-pill">ESP32 HARDWARE HEALTH</span>
+            <h2>Connected Sensor Probes &amp; Telemetry Matrix</h2>
+            <p class="status-help">
+              Live hardware diagnostics reported via telemetry packet. A sensor shows
+              <strong>Connected</strong> when valid electrical signals are sampled, <strong>Unplugged</strong>
+              when probe open-circuit or UART handshake timeout occurs, or <strong>ESP Offline</strong> if
+              the microcontroller stops transmitting packets.
+            </p>
           </div>
           <div class="status-group">
             <span id="statusModeBadge" class="status-badge offline">Checking...</span>
-            <span class="meta-text">Last update: <strong id="statusUpdateTime">--</strong></span>
+            <div class="meta-time-badge">
+              <span class="meta-label">LAST PROBE SYNC</span>
+              <strong id="statusUpdateTime" class="mono-text">--</strong>
+            </div>
           </div>
         </div>
-        <p class="status-help">
-          This page shows the latest status reported by the ESP device. “Unknown” means the
-          hardware cannot confirm its connection, while “Not configured” means no driver or
-          reading code has been added yet.
-        </p>
       </section>
 
+      <!-- 6 Sensor Diagnostics Cards -->
       <section class="sensor-status-grid" aria-label="Sensor status cards">
-        {% for sensor in [
-          ("ph", "pH sensor (not connected)", "pH", "phValue"),
-          ("turbidity", "Turbidity sensor", "Raw ADC", "turbidityValue"),
-          ("inlet_flow", "Inlet flow sensor", "L/min", "inletFlowValue"),
-          ("recovery_flow", "Recovery flow sensor", "L/min", "recoveryFlowValue"),
-          ("reject_flow", "Reject flow sensor", "L/min", "rejectFlowValue"),
-          ("water_level", "Ultrasonic level sensor", "cm", "waterLevelValue")
-        ] %}
-        <article class="sensor-status-card">
-          <div class="sensor-card-icon">●</div>
-          <div class="sensor-card-content">
-            <h3>{{ sensor[1] }}</h3>
-            <p>Latest reading: <strong id="{{ sensor[3] }}">--</strong> {{ sensor[2] }}</p>
+        <!-- 1. pH Probe -->
+        <article class="diag-card">
+          <div class="diag-card-top">
+            <div class="diag-badge-icon ph-icon">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+            </div>
+            <span id="phStatus" class="sensor-status-badge unknown">Unknown</span>
           </div>
-          <span id="{{ sensor[0] }}Status" class="sensor-status-badge unknown">Unknown</span>
+          <div class="diag-card-body">
+            <h3>pH Glass Electrode Probe</h3>
+            <p class="diag-sub">UART / Analog Signal Board</p>
+            <div class="diag-value-box">
+              <span class="label">Live Reading:</span>
+              <span class="value-wrap">
+                <strong id="phValue" class="diag-value mono-text">--</strong>
+                <span class="unit">pH</span>
+              </span>
+            </div>
+          </div>
+          <div class="diag-card-footer">
+            <span>Pin: GPIO 34 (ADC1)</span>
+            <span class="range-tag">0 - 14 pH</span>
+          </div>
         </article>
-        {% endfor %}
+
+        <!-- 2. Turbidity Sensor -->
+        <article class="diag-card">
+          <div class="diag-card-top">
+            <div class="diag-badge-icon turb-icon">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M8 12s1.5-2 4-2 4 2 4 2-1.5 2-4 2-4-2-4-2z"></path></svg>
+            </div>
+            <span id="turbidityStatus" class="sensor-status-badge unknown">Unknown</span>
+          </div>
+          <div class="diag-card-body">
+            <h3>Optical Turbidity Sensor</h3>
+            <p class="diag-sub">Infrared Scattering Tube</p>
+            <div class="diag-value-box">
+              <span class="label">Raw Conversion:</span>
+              <span class="value-wrap">
+                <strong id="turbidityValue" class="diag-value mono-text">--</strong>
+                <span class="unit">ADC</span>
+              </span>
+            </div>
+          </div>
+          <div class="diag-card-footer">
+            <span>Pin: GPIO 35 (ADC1)</span>
+            <span class="range-tag">0 - 1023 ADC</span>
+          </div>
+        </article>
+
+        <!-- 3. Inlet Flow Meter -->
+        <article class="diag-card">
+          <div class="diag-card-top">
+            <div class="diag-badge-icon flow-icon">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+            </div>
+            <span id="inlet_flowStatus" class="sensor-status-badge unknown">Unknown</span>
+          </div>
+          <div class="diag-card-body">
+            <h3>Inlet Feed Flow Transmitter</h3>
+            <p class="diag-sub">YF-S201 Hall Turbine</p>
+            <div class="diag-value-box">
+              <span class="label">Volumetric Velocity:</span>
+              <span class="value-wrap">
+                <strong id="inletFlowValue" class="diag-value mono-text">--</strong>
+                <span class="unit">L/min</span>
+              </span>
+            </div>
+          </div>
+          <div class="diag-card-footer">
+            <span>Pin: GPIO 4 (Pulse INT)</span>
+            <span class="range-tag">1 - 30 L/min</span>
+          </div>
+        </article>
+
+        <!-- 4. Recovery Flow Meter -->
+        <article class="diag-card">
+          <div class="diag-card-top">
+            <div class="diag-badge-icon recovery-icon">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+            </div>
+            <span id="recovery_flowStatus" class="sensor-status-badge unknown">Unknown</span>
+          </div>
+          <div class="diag-card-body">
+            <h3>Permeate Recovery Transmitter</h3>
+            <p class="diag-sub">YF-S201 Hall Turbine</p>
+            <div class="diag-value-box">
+              <span class="label">Recovery Velocity:</span>
+              <span class="value-wrap">
+                <strong id="recoveryFlowValue" class="diag-value mono-text">--</strong>
+                <span class="unit">L/min</span>
+              </span>
+            </div>
+          </div>
+          <div class="diag-card-footer">
+            <span>Pin: GPIO 2 (Pulse INT)</span>
+            <span class="range-tag">1 - 30 L/min</span>
+          </div>
+        </article>
+
+        <!-- 5. Reject Flow Meter -->
+        <article class="diag-card">
+          <div class="diag-card-top">
+            <div class="diag-badge-icon reject-icon">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M5 12h14"></path></svg>
+            </div>
+            <span id="reject_flowStatus" class="sensor-status-badge unknown">Unknown</span>
+          </div>
+          <div class="diag-card-body">
+            <h3>Concentrate Reject Transmitter</h3>
+            <p class="diag-sub">YF-S201 Hall Turbine</p>
+            <div class="diag-value-box">
+              <span class="label">Reject Velocity:</span>
+              <span class="value-wrap">
+                <strong id="rejectFlowValue" class="diag-value mono-text">--</strong>
+                <span class="unit">L/min</span>
+              </span>
+            </div>
+          </div>
+          <div class="diag-card-footer">
+            <span>Pin: GPIO 15 (Pulse INT)</span>
+            <span class="range-tag">1 - 30 L/min</span>
+          </div>
+        </article>
+
+        <!-- 6. Ultrasonic Level Transceiver -->
+        <article class="diag-card">
+          <div class="diag-card-top">
+            <div class="diag-badge-icon tank-icon">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
+            </div>
+            <span id="water_levelStatus" class="sensor-status-badge unknown">Unknown</span>
+          </div>
+          <div class="diag-card-body">
+            <h3>Ultrasonic Tank Level Probe</h3>
+            <p class="diag-sub">AJ-SR04M Waterproof</p>
+            <div class="diag-value-box">
+              <span class="label">Surface Distance:</span>
+              <span class="value-wrap">
+                <strong id="waterLevelValue" class="diag-value mono-text">--</strong>
+                <span class="unit">cm</span>
+              </span>
+            </div>
+          </div>
+          <div class="diag-card-footer">
+            <span>Pins: TRIG D6 / ECHO D5</span>
+            <span class="range-tag">20 - 450 cm</span>
+          </div>
+        </article>
       </section>
 
+      <!-- Detailed Sensor Health Diagnostics Table -->
       <section class="panel">
         <div class="section-header">
-          <h3>Sensor status details</h3>
-          <span id="sensorCountText" class="mini-badge">--</span>
+          <div class="section-title-wrap">
+            <span class="panel-subtitle">LIVE PROBE MATRIX</span>
+            <h3>Comprehensive Telemetry Port Mapping</h3>
+          </div>
+          <span id="sensorCountText" class="mini-badge good">--</span>
         </div>
         <div class="table-wrap">
-          <table>
+          <table class="scada-table">
             <thead>
               <tr>
-                <th>Sensor</th>
-                <th>Status</th>
-                <th>Latest reading</th>
-                <th>Unit</th>
-                <th>Timestamp</th>
+                <th>Hardware Subsystem</th>
+                <th>Interface Status</th>
+                <th>Calibrated Measurement</th>
+                <th>Engineering Unit</th>
+                <th>Packet Timestamp</th>
               </tr>
             </thead>
             <tbody id="statusTableBody">
-              <tr><td colspan="5">Loading sensor status...</td></tr>
+              <tr><td colspan="5" class="table-loading">Querying sensor bus...</td></tr>
             </tbody>
           </table>
         </div>

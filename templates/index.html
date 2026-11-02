@@ -1,131 +1,688 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ZLD Monitoring Dashboard</title>
+    <title>ZLD SCADA | Zero Liquid Discharge Monitoring</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
   <body>
+    <!-- Top Navigation Bar -->
     <header class="topbar">
-      <a class="brand-wrap" href="#dashboard">
-        <div class="brand-icon">Z</div>
-        <div><h1>ZLD Monitoring</h1><p>Zero Liquid Discharge Water Treatment System</p></div>
-      </a>
+      <div class="topbar-left">
+        <a class="brand-wrap" href="#dashboard">
+          <div class="brand-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+            </svg>
+            <span class="brand-pulse-dot" id="headerPulseDot"></span>
+          </div>
+          <div class="brand-text">
+            <div class="brand-title">
+              <h1>ZLD SCADA</h1>
+              <span class="badge-tech">IoT V2.4</span>
+            </div>
+            <p>Zero Liquid Discharge Telemetry & Process Control</p>
+          </div>
+        </a>
+      </div>
+
       <nav class="nav-menu" aria-label="Main navigation">
-        <a class="active" href="#dashboard">Dashboard</a>
-        <a href="#live-monitoring">Live Monitoring</a>
-        <a href="#history">History</a>
-        <a href="/sensor-status">Sensor Status</a>
-        <a href="#about">About</a>
+        <a class="active" href="#dashboard">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          Dashboard
+        </a>
+        <a href="#process-diagram">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><line x1="20" y1="4" x2="20" y2="20"></line><line x1="6" y1="9" x2="6" y2="15"></line><path d="M18 9a9 9 0 0 1-9 9"></path></svg>
+          Process Flow (P&amp;ID)
+        </a>
+        <a href="#history">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+          Trends
+        </a>
+        <a href="/sensor-status">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+          Sensor Diagnostics
+        </a>
       </nav>
+
+      <div class="topbar-actions">
+        <!-- Live Clock -->
+        <div class="system-clock">
+          <span class="clock-label">SYSTEM UTC</span>
+          <span class="clock-time" id="systemClock">--:--:--</span>
+        </div>
+
+        <!-- Palette Picker -->
+        <div class="palette-picker" id="palettePicker">
+          <button id="paletteBtn" class="btn-palette" type="button" title="Select Color Palette" aria-label="Select Color Palette">
+            <span class="palette-swatch-preview"></span>
+            <span class="palette-label">Palette</span>
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div id="paletteDropdown" class="palette-dropdown hidden">
+            <button class="palette-option active" data-palette="ocean" type="button">
+              <span class="palette-swatch" style="background: linear-gradient(135deg, #2dd4bf, #38bdf8);"></span>
+              <span>Nordic Ocean</span>
+            </button>
+            <button class="palette-option" data-palette="emerald" type="button">
+              <span class="palette-swatch" style="background: linear-gradient(135deg, #10b981, #00f5d4);"></span>
+              <span>Bio Emerald</span>
+            </button>
+            <button class="palette-option" data-palette="cyber" type="button">
+              <span class="palette-swatch" style="background: linear-gradient(135deg, #f59e0b, #eab308);"></span>
+              <span>Industrial Volt</span>
+            </button>
+            <button class="palette-option" data-palette="cobalt" type="button">
+              <span class="palette-swatch" style="background: linear-gradient(135deg, #6366f1, #60a5fa);"></span>
+              <span>Royal Cobalt</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Audio Alert Toggle -->
+        <button id="audioAlarmToggle" class="btn-icon" type="button" title="Toggle audio alarms" aria-label="Toggle audio alarms">
+          <svg id="audioIconOn" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+          <svg id="audioIconOff" class="hidden" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
+        </button>
+
+        <!-- Theme Toggle -->
+        <button id="themeToggle" class="btn-icon" type="button" title="Switch Theme (Dark/Light)" aria-label="Switch Theme">
+          <svg id="themeIconSun" class="hidden" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+          <svg id="themeIconMoon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+      </div>
     </header>
 
     <main class="container dashboard-shell">
+      <!-- Dashboard Top Header Bar -->
       <section id="dashboard" class="dashboard-heading">
-        <div>
-          <span class="eyebrow">MODULE 4</span>
-          <h2>Dashboard and Alert</h2>
-          <p>Real-time monitoring and system notifications</p>
+        <div class="heading-meta">
+          <div class="eyebrow-row">
+            <span class="eyebrow-pill">SCADA TELEMETRY HUB</span>
+            <span id="liveModeText" class="mini-badge good">Live data</span>
+            <span id="espDiscoveredPill" class="mini-badge-discovery hidden">ESP Connected</span>
+          </div>
+          <h2>Zero Liquid Discharge Process Overview</h2>
+          <p class="heading-sub">Continuous Effluent Desalination &amp; Pure Water Recovery Loop</p>
         </div>
-        <div class="status-group">
-          <span id="connectionBadge" class="status-badge offline">Offline</span>
-          <span class="meta-text">Last update: <strong id="lastUpdateText">--</strong></span>
+
+        <div class="status-summary-bar">
+          <div class="stat-bubble">
+            <span class="stat-bubble-label">ESP32 LINK</span>
+            <span id="connectionBadge" class="status-badge offline">Offline</span>
+          </div>
+          <div class="stat-bubble">
+            <span class="stat-bubble-label">LAST TELEMETRY PACKET</span>
+            <strong id="lastUpdateText" class="mono-text">--</strong>
+          </div>
+          <div class="stat-bubble">
+            <button id="refreshButton" class="btn-refresh" type="button" title="Force refresh readings">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+              Sync Now
+            </button>
+          </div>
         </div>
       </section>
 
+      <!-- Urgent Alarm Banner (Auto-expands on Flow Mismatch) -->
+      <div id="flowMismatchAlert" class="scada-alarm-banner" hidden>
+        <div class="alarm-icon-pulse">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+        </div>
+        <div class="alarm-content">
+          <div class="alarm-title-row">
+            <h4>MASS BALANCE MISMATCH DETECTED</h4>
+            <span class="alarm-level-tag">CRITICAL SEVERITY</span>
+          </div>
+          <p id="flowMismatchDetails" class="alarm-detail-text">Inlet flow does not match recovery stream within the 15% tolerance window.</p>
+          <div class="alarm-footer-meta">
+            <span>Automatic SMTP notification dispatched to authority</span>
+            <span>Check pipeline valves &amp; membrane differential</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Primary KPI Cards Grid -->
+      <section class="overview-kpi-grid">
+        <!-- 1. pH Sensor Card -->
+        <article class="kpi-card" id="cardPh">
+          <div class="kpi-header">
+            <span class="kpi-title">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+              Effluent pH
+            </span>
+            <span id="phLevel" class="level-tag warning">Unknown</span>
+          </div>
+          <div class="kpi-value-row">
+            <div id="phValue" class="kpi-number mono-text">--</div>
+            <span class="kpi-unit">pH</span>
+          </div>
+          <!-- pH Range Bar (0 - 14) -->
+          <div class="ph-range-container">
+            <div class="ph-bar-track">
+              <div class="ph-zone acidic" title="Acidic (0-6.5)"></div>
+              <div class="ph-zone neutral" title="Safe Neutral (6.5-8.5)"></div>
+              <div class="ph-zone basic" title="Alkaline (8.5-14)"></div>
+              <div id="phNeedle" class="ph-indicator-needle" style="left: 50%;"></div>
+            </div>
+            <div class="ph-labels">
+              <span>0</span>
+              <span class="ph-target-tag">6.5 - 8.5 Safe</span>
+              <span>14</span>
+            </div>
+          </div>
+          <div class="kpi-footer">
+            <small>Sensor: <span id="phConnection" class="sensor-status">Unknown</span></small>
+            <small class="kpi-meta-hint">Target 7.0 ± 0.5</small>
+          </div>
+        </article>
+
+        <!-- 2. Turbidity Card -->
+        <article class="kpi-card" id="cardTurbidity">
+          <div class="kpi-header">
+            <span class="kpi-title">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M8 12s1.5-2 4-2 4 2 4 2-1.5 2-4 2-4-2-4-2z"></path></svg>
+              Water Turbidity
+            </span>
+            <span id="turbidityLevel" class="level-tag good">Normal</span>
+          </div>
+          <div class="kpi-value-row">
+            <div id="turbidityValue" class="kpi-number mono-text">--</div>
+            <span class="kpi-unit">ADC raw</span>
+          </div>
+          <div class="turbidity-meter-wrap">
+            <div class="clarity-bar">
+              <div id="clarityFill" class="clarity-fill" style="width: 25%;"></div>
+            </div>
+            <div class="clarity-labels">
+              <span>Clear (&lt;300)</span>
+              <span>Moderate</span>
+              <span>Turbid (&gt;700)</span>
+            </div>
+          </div>
+          <div class="kpi-footer">
+            <small>Sensor: <span id="turbidityConnection" class="sensor-status">Unknown</span></small>
+            <small id="turbidityEstimatedNtu" class="kpi-meta-hint">~2.5 NTU est.</small>
+          </div>
+        </article>
+
+        <!-- 3. ZLD Recovery Efficiency Card -->
+        <article class="kpi-card" id="cardRecovery">
+          <div class="kpi-header">
+            <span class="kpi-title">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+              Recovery Efficiency
+            </span>
+            <span id="recoveryRateBadge" class="level-tag good">Optimal</span>
+          </div>
+          <div class="kpi-value-row">
+            <div id="recoveryRateValue" class="kpi-number mono-text">--</div>
+            <span class="kpi-unit">% Recovery</span>
+          </div>
+          <div class="progress-wrap">
+            <div class="progress-track">
+              <div id="recoveryProgressBar" class="progress-bar-fill" style="width: 82%;"></div>
+            </div>
+            <div class="progress-meta">
+              <span>ZLD Target: &gt;75%</span>
+              <span id="massBalanceDelta" class="mono-text">Δ 0.0 L/m</span>
+            </div>
+          </div>
+          <div class="kpi-footer">
+            <small>Permeate / Influent Ratio</small>
+            <small id="zldComplianceStatus" class="kpi-meta-hint text-success">Compliant</small>
+          </div>
+        </article>
+
+        <!-- 4. Water Level & Tank Volume Card -->
+        <article class="kpi-card" id="cardTank">
+          <div class="kpi-header">
+            <span class="kpi-title">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
+              Storage Buffer Tank
+            </span>
+            <span id="tankStatusTag" class="level-tag good">Normal</span>
+          </div>
+          <div class="kpi-value-row">
+            <div id="tankPercentageValue" class="kpi-number mono-text">--</div>
+            <span class="kpi-unit">% Full</span>
+          </div>
+          <div class="tank-quick-stats">
+            <div class="mini-stat-col">
+              <span class="stat-caption">Ultrasound Depth</span>
+              <strong id="waterLevelValue" class="mono-text">-- cm</strong>
+            </div>
+            <div class="mini-stat-col">
+              <span class="stat-caption">Level Sensor</span>
+              <span id="waterLevelConnection" class="sensor-status">--</span>
+            </div>
+          </div>
+          <div class="kpi-footer">
+            <small>Safety Range: 20% - 90%</small>
+            <small class="kpi-meta-hint">AJ-SR04M</small>
+          </div>
+        </article>
+
+        <!-- 5. System Connection & Pump Station -->
+        <article class="kpi-card" id="cardSystem">
+          <div class="kpi-header">
+            <span class="kpi-title">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"></path></svg>
+              Pump &amp; Controller
+            </span>
+            <span id="connectionIcon" class="connection-icon">WiFi</span>
+          </div>
+          <div class="kpi-value-row">
+            <div id="pumpStatusValue" class="kpi-number pump-state-on mono-text">--</div>
+            <span class="kpi-unit">PUMP STATE</span>
+          </div>
+          <div class="system-mini-list">
+            <div class="sys-item">
+              <span>ESP32 Hardware:</span>
+              <strong id="esp32StatusValue">Disconnected</strong>
+            </div>
+            <div class="sys-item">
+              <span>Last Packet:</span>
+              <span id="sensorUpdateTime" class="mono-text">--</span>
+            </div>
+          </div>
+          <div class="kpi-footer">
+            <small>Driver: <span id="esp32StatusMirror">ESP32 Core</span></small>
+            <small id="sensorUpdateMirror" class="mono-text">--</small>
+          </div>
+        </article>
+      </section>
+
+      <!-- Main Layout: SCADA Center + Side Deck -->
       <div class="dashboard-grid">
         <div class="dashboard-main">
-          <section class="panel overview-panel">
-            <div class="section-header"><h3>Water treatment overview</h3></div>
-            <div class="cards-grid overview-cards">
-              <article class="metric-card">
-                <div class="card-header"><span>pH</span><span id="phLevel" class="level-tag warning">Unknown</span></div>
-                <div id="phValue" class="value">--</div>
-                <small>Water quality · <span id="phConnection" class="sensor-status">Unknown</span></small>
-              </article>
-              <article class="metric-card">
-                <div class="card-header"><span>Turbidity</span><span id="turbidityLevel" class="level-tag good">Normal</span></div>
-                <div id="turbidityValue" class="value">--</div>
-                <small>Raw ADC · <span id="turbidityConnection" class="sensor-status">Unknown</span></small>
-              </article>
-              <article class="metric-card connection-card">
-                <div class="card-header"><span>System connection</span><span id="connectionIcon" class="connection-icon">WiFi</span></div>
-                <div id="esp32StatusValue" class="connection-value">Disconnected</div>
-                <small>ESP32 connection · <span id="sensorUpdateTime">--</span></small>
-              </article>
+          <!-- ⚗️ INTERACTIVE SCADA PROCESS FLOW DIAGRAM (P&ID) -->
+          <section id="process-diagram" class="panel scada-pid-panel">
+            <div class="section-header">
+              <div class="section-title-wrap">
+                <span class="panel-subtitle">INDUSTRIAL SCHEMATIC</span>
+                <h3>Closed-Loop Zero Liquid Discharge Flow Path</h3>
+              </div>
+              <div class="pid-legend">
+                <span class="legend-chip stream-inlet"><span class="chip-dot"></span>Inlet Feed</span>
+                <span class="legend-chip stream-recovery"><span class="chip-dot"></span>Permeate Recovery</span>
+                <span class="legend-chip stream-reject"><span class="chip-dot"></span>Concentrate Reject</span>
+              </div>
+            </div>
+
+            <div class="pid-diagram-container">
+              <!-- STAGE 1: INLET STREAM -->
+              <div class="pid-node pid-inlet-stage">
+                <div class="pid-node-badge">STAGE 01 · FEED</div>
+                <div class="pid-device-box">
+                  <div class="device-icon">
+                    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M5 12h14"></path></svg>
+                  </div>
+                  <h5>Raw Effluent Feed</h5>
+                  <div class="flow-display">
+                    <span class="flow-rate mono-text" id="inletFlowValue">--</span>
+                    <span class="unit">L/min</span>
+                  </div>
+                  <div class="sensor-pill-status">
+                    <span id="inletFlowConnection" class="sensor-status">--</span>
+                  </div>
+                </div>
+                <div class="volume-stat">
+                  <span>Total Cumulative Inflow:</span>
+                  <strong id="inletTotalValue" class="mono-text">-- L</strong>
+                </div>
+              </div>
+
+              <!-- Animated Pipe 1: Inlet to Tank -->
+              <div class="pid-pipe pipe-inlet">
+                <div class="pipe-line">
+                  <span class="flow-particle p1"></span>
+                  <span class="flow-particle p2"></span>
+                  <span class="flow-particle p3"></span>
+                </div>
+                <div class="pipe-arrow">▶</div>
+              </div>
+
+              <!-- STAGE 2: BUFFER & EQUALIZATION TANK -->
+              <div class="pid-node pid-tank-stage">
+                <div class="pid-node-badge">STAGE 02 · BUFFER TANK</div>
+                <div class="scada-tank-assembly">
+                  <div class="scada-tank-shell">
+                    <!-- Graduation markings -->
+                    <div class="tank-graduations">
+                      <span class="grad-mark g100">100%</span>
+                      <span class="grad-mark g75">75%</span>
+                      <span class="grad-mark g50">50%</span>
+                      <span class="grad-mark g25">25%</span>
+                      <span class="grad-mark g0">0%</span>
+                    </div>
+                    <!-- Animated Wave Water Surface -->
+                    <div id="tankFill" class="scada-tank-fill" style="height: 65%;">
+                      <div class="wave-layer wave-1"></div>
+                      <div class="wave-layer wave-2"></div>
+                    </div>
+                    <div class="tank-sensor-probe" title="AJ-SR04M Ultrasonic Sensor Probe">
+                      <div class="probe-head"></div>
+                      <div class="ultrasonic-waves">
+                        <span class="pulse-ring"></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="tank-readout-row">
+                  <div class="tank-stat">
+                    <span>Depth:</span>
+                    <strong id="waterLevelMirror" class="mono-text">-- cm</strong>
+                  </div>
+                  <div class="tank-stat">
+                    <span>Volume:</span>
+                    <strong id="tankPercentageMirror" class="mono-text">-- %</strong>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Animated Pipe 2: Tank to Pump & RO Unit -->
+              <div class="pid-pipe pipe-treatment">
+                <div class="pipe-line">
+                  <span class="flow-particle p1"></span>
+                  <span class="flow-particle p2"></span>
+                </div>
+                <div class="pipe-arrow">▶</div>
+              </div>
+
+              <!-- STAGE 3: HP PUMP & HIGH-REJECTION MEMBRANE -->
+              <div class="pid-node pid-treatment-stage">
+                <div class="pid-node-badge">STAGE 03 · SEPARATION</div>
+                <!-- Animated Centrifugal Pump -->
+                <div class="scada-pump-unit">
+                  <div class="pump-impeller-casing" id="pumpImpellerCasing">
+                    <svg viewBox="0 0 24 24" class="impeller-svg" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="3"></circle>
+                      <path d="M12 2a10 10 0 0 1 10 10M12 22a10 10 0 0 1-10-10M2 12a10 10 0 0 1 10-10"></path>
+                    </svg>
+                  </div>
+                  <div class="pump-info">
+                    <span class="pump-label">Booster Pump</span>
+                    <span id="pumpStatusMirror" class="pump-chip">RUNNING</span>
+                  </div>
+                </div>
+
+                <!-- Membrane Chamber Diagram -->
+                <div class="membrane-chamber">
+                  <div class="membrane-core">
+                    <span class="membrane-filter-line"></span>
+                    <span class="membrane-name">RO / ZLD Core</span>
+                  </div>
+                  <div class="quality-mini-readouts">
+                    <span class="q-tag">pH: <strong id="phMirror" class="mono-text">--</strong></span>
+                    <span class="q-tag">Turbidity: <strong id="turbidityMirror" class="mono-text">--</strong></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Pipe Splitter: To Recovery & Reject -->
+              <div class="pid-splitter">
+                <div class="splitter-line-top"></div>
+                <div class="splitter-line-bottom"></div>
+              </div>
+
+              <!-- STAGE 4: DUAL OUTPUTS (RECOVERY + REJECT) -->
+              <div class="pid-dual-outputs">
+                <!-- Recovery Stream -->
+                <div class="pid-output-node stream-recovery-box">
+                  <div class="output-header">
+                    <span class="stream-label recovery">PERMEATE RECOVERY</span>
+                    <span id="recoveryFlowConnection" class="sensor-status">--</span>
+                  </div>
+                  <div class="output-flow-data">
+                    <strong id="recoveryFlowValue" class="output-rate mono-text">--</strong>
+                    <span class="unit">L/min</span>
+                  </div>
+                  <div class="output-volume">
+                    <span>Recycled Total:</span>
+                    <strong id="recoveryTotalValue" class="mono-text">-- L</strong>
+                  </div>
+                </div>
+
+                <!-- Reject Stream -->
+                <div class="pid-output-node stream-reject-box">
+                  <div class="output-header">
+                    <span class="stream-label reject">CONCENTRATE REJECT</span>
+                    <span id="rejectFlowConnection" class="sensor-status">--</span>
+                  </div>
+                  <div class="output-flow-data">
+                    <strong id="rejectFlowValue" class="output-rate mono-text">--</strong>
+                    <span class="unit">L/min</span>
+                  </div>
+                  <div class="output-volume">
+                    <span>Brine Total:</span>
+                    <strong id="rejectTotalValue" class="mono-text">-- L</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Mass Balance Verification Bar -->
+            <div class="mass-balance-bar">
+              <div class="balance-equation">
+                <span class="eq-label">MASS BALANCE SANITY CHECK:</span>
+                <span class="eq-code mono-text">Inflow ≈ Recovery + Reject</span>
+              </div>
+              <div class="balance-status" id="massBalancePill">
+                <span class="status-indicator-dot"></span>
+                <span id="massBalanceText">Mass Balance Balanced</span>
+              </div>
             </div>
           </section>
 
-          <section id="live-monitoring" class="panel">
-            <div class="section-header"><h3>Live Monitoring</h3><span id="liveModeText" class="mini-badge good">Live data</span></div>
-            <div class="monitor-grid">
-              <div class="sub-panel flow-panel">
-                <h4>Flow monitoring</h4>
-                <div class="flow-list">
-                  <div class="flow-item"><div><label>Inlet flow</label><strong id="inletFlowValue">--</strong> <span id="inletFlowConnection" class="sensor-status">--</span></div><span class="unit">L/min</span></div>
-                  <div class="flow-item"><div><label>Recovery flow</label><strong id="recoveryFlowValue">--</strong> <span id="recoveryFlowConnection" class="sensor-status">--</span></div><span class="unit">L/min</span></div>
-                  <div class="flow-item"><div><label>Reject flow</label><strong id="rejectFlowValue">--</strong> <span id="rejectFlowConnection" class="sensor-status">--</span></div><span class="unit">L/min</span></div>
-                </div>
-                <div class="volume-panel">
-                  <div><small>Inlet volume</small><strong id="inletTotalValue">-- L</strong></div>
-                  <div><small>Recovery volume</small><strong id="recoveryTotalValue">-- L</strong></div>
-                  <div><small>Reject volume</small><strong id="rejectTotalValue">-- L</strong></div>
-                </div>
-              </div>
-              <div class="sub-panel tank-panel">
-                <h4>Water level monitoring</h4>
-                <div class="tank-container"><div class="tank-shell"><div id="tankFill" class="tank-fill"></div></div></div>
-                <div class="tank-metrics">
-                  <div><small>Ultrasonic level</small><strong id="waterLevelValue">-- cm</strong><span id="waterLevelConnection" class="sensor-status">--</span></div>
-                  <div><small>Tank level</small><strong id="tankPercentageValue">-- %</strong></div>
-                </div>
-              </div>
-              <div class="sub-panel status-panel">
-                <h4>Pump and connection</h4>
-                <div class="status-stack">
-                  <div class="status-row"><span>Pump status</span><strong id="pumpStatusValue">--</strong></div>
-                  <div class="status-row"><span>ESP32 connection</span><strong id="esp32StatusMirror">--</strong></div>
-                  <div class="status-row"><span>Last sensor update</span><strong id="sensorUpdateMirror">--</strong></div>
-                </div>
-              </div>
-            </div>
-            <div id="flowMismatchAlert" class="alert-panel" hidden><strong>Flow sensor mismatch</strong><span id="flowMismatchDetails"></span><small>Email notification is sent to the configured authority.</small></div>
-          </section>
-
+          <!-- 📈 HISTORICAL HIGH-PRECISION CHARTS -->
           <section id="history" class="panel history-panel">
-            <div class="section-header"><h3>Historical readings</h3></div>
+            <div class="section-header">
+              <div class="section-title-wrap">
+                <span class="panel-subtitle">REAL-TIME TELEMETRY TELEMETRICS</span>
+                <h3>High-Resolution Sensor History</h3>
+              </div>
+              <div class="chart-controls">
+                <div class="btn-group-pill">
+                  <button class="chart-range-btn active" data-limit="12">12 Pts</button>
+                  <button class="chart-range-btn" data-limit="24">24 Pts</button>
+                  <button class="chart-range-btn" data-limit="50">50 Pts</button>
+                </div>
+              </div>
+            </div>
+
             <div class="chart-grid">
-              <div class="chart-card"><h4>Water quality history</h4><canvas id="qualityChart" width="640" height="260"></canvas></div>
-              <div class="chart-card"><h4>Flow rate history</h4><canvas id="flowChart" width="640" height="260"></canvas></div>
+              <!-- Chart 1: Water Quality (pH & Turbidity) -->
+              <div class="chart-card">
+                <div class="chart-card-header">
+                  <div class="chart-title-group">
+                    <h4>Water Quality Dynamics</h4>
+                    <span class="chart-subtitle">pH &amp; Turbidity ADC Readouts</span>
+                  </div>
+                  <div class="chart-legend">
+                    <span class="legend-item"><span class="legend-color-dot" style="background:#2ec4b6;"></span>pH Level</span>
+                    <span class="legend-item"><span class="legend-color-dot" style="background:#ffc857;"></span>Turbidity (ADC)</span>
+                  </div>
+                </div>
+                <div class="canvas-wrap">
+                  <canvas id="qualityChart" width="680" height="260"></canvas>
+                  <div id="qualityTooltip" class="chart-hover-tooltip" hidden></div>
+                </div>
+              </div>
+
+              <!-- Chart 2: Flow Rate Dynamics (Inlet vs Recovery vs Reject) -->
+              <div class="chart-card">
+                <div class="chart-card-header">
+                  <div class="chart-title-group">
+                    <h4>Flow Rate &amp; Mass Balance</h4>
+                    <span class="chart-subtitle">Inlet, Permeate &amp; Slurry Volumes</span>
+                  </div>
+                  <div class="chart-legend">
+                    <span class="legend-item"><span class="legend-color-dot" style="background:#00e5ff;"></span>Inlet</span>
+                    <span class="legend-item"><span class="legend-color-dot" style="background:#10b981;"></span>Recovery</span>
+                    <span class="legend-item"><span class="legend-color-dot" style="background:#f43f5e;"></span>Reject</span>
+                  </div>
+                </div>
+                <div class="canvas-wrap">
+                  <canvas id="flowChart" width="680" height="260"></canvas>
+                  <div id="flowTooltip" class="chart-hover-tooltip" hidden></div>
+                </div>
+              </div>
             </div>
           </section>
 
-          <section class="panel">
-            <div class="section-header"><h3>Latest sensor readings</h3><div class="table-actions"><button id="refreshButton" class="button-link" type="button">Refresh readings</button><a class="button-link" href="/api/export.csv">Export data</a></div></div>
+          <!-- 📋 DETAILED LATEST READINGS DATA TABLE -->
+          <section class="panel table-panel">
+            <div class="section-header">
+              <div class="section-title-wrap">
+                <span class="panel-subtitle">DATABASE LOG</span>
+                <h3>Latest Calibrated Sensor Measurements</h3>
+              </div>
+              <div class="table-actions">
+                <div class="table-search-box">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                  <input type="text" id="tableFilterInput" placeholder="Filter parameters..." />
+                </div>
+                <a class="button-export" href="/api/export.csv" download>
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                  Export CSV Log
+                </a>
+              </div>
+            </div>
+
             <div class="table-wrap">
-              <table><thead><tr><th>Parameter</th><th>Value</th><th>Unit</th><th>Sensor status</th><th>Flow alert</th><th>Timestamp</th></tr></thead>
-                <tbody id="sensorTableBody"><tr><td colspan="6">Loading data...</td></tr></tbody>
+              <table class="scada-table">
+                <thead>
+                  <tr>
+                    <th>Sensor Parameter</th>
+                    <th>Measured Value</th>
+                    <th>Unit</th>
+                    <th>Hardware Status</th>
+                    <th>Safety Assessment</th>
+                    <th>Telemetry Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody id="sensorTableBody">
+                  <tr><td colspan="6" class="table-loading">Initializing telemetry connection...</td></tr>
+                </tbody>
               </table>
             </div>
           </section>
         </div>
 
+        <!-- 🛠️ SIDEBAR: SIMULATION DOCK, ALERTS, AND SYSTEM LOG -->
         <aside class="dashboard-side">
+          <!-- Interactive Simulator & Fault Injection Dock -->
+          <section class="panel side-panel simulation-dock-panel">
+            <div class="section-header">
+              <div class="section-title-wrap">
+                <span class="panel-subtitle">LIVE TESTBENCH</span>
+                <h3>Hardware Simulation Dock</h3>
+              </div>
+            </div>
+            <p class="side-help-text">Inject telemetry events or sensor faults into the live SCADA engine for evaluation.</p>
+            <div class="simulation-actions-grid">
+              <button class="btn-sim sim-normal" data-preset="normal" type="button">
+                <span class="sim-dot green"></span>
+                <span>Normal Balanced</span>
+              </button>
+              <button class="btn-sim sim-mismatch" data-preset="mismatch" type="button">
+                <span class="sim-dot red"></span>
+                <span>Flow Mismatch</span>
+              </button>
+              <button class="btn-sim sim-turbid" data-preset="high_turbidity" type="button">
+                <span class="sim-dot orange"></span>
+                <span>Turbidity Surge</span>
+              </button>
+              <button class="btn-sim sim-acid" data-preset="acidic_ph" type="button">
+                <span class="sim-dot purple"></span>
+                <span>Acidic pH Influx</span>
+              </button>
+              <button class="btn-sim sim-pump" data-preset="pump_off" type="button">
+                <span class="sim-dot grey"></span>
+                <span>Trip Pump OFF</span>
+              </button>
+              <button class="btn-sim sim-unplug" data-preset="unplug_ph" type="button">
+                <span class="sim-dot amber"></span>
+                <span>Unplug pH Probe</span>
+              </button>
+            </div>
+            <div id="simFeedback" class="sim-feedback-msg" hidden></div>
+          </section>
+
+          <!-- Alerts and Notification Dispatcher -->
           <section class="panel side-panel">
-            <div class="section-header"><h3>Alerts and Notifications</h3><button id="testEmailButton" class="view-button" type="button">Send Test Email</button></div>
-            <div id="alertsList" class="notification-list"><div class="notification info"><b>Loading alerts</b><span>Checking sensor status...</span></div></div>
+            <div class="section-header">
+              <div class="section-title-wrap">
+                <span class="panel-subtitle">ACTIVE WARNINGS</span>
+                <h3>System Alerts &amp; Dispatch</h3>
+              </div>
+              <button id="testEmailButton" class="view-button" type="button">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                Test Dispatch
+              </button>
+            </div>
+            <div id="alertsList" class="notification-list">
+              <div class="notification info">
+                <b>Initializing telemetry diagnostics</b>
+                <span>Monitoring live sensor limits...</span>
+              </div>
+            </div>
             <div id="testEmailMessage" class="test-email-message" role="status" aria-live="polite"></div>
           </section>
+
+          <!-- System Activity Feed -->
           <section class="panel side-panel">
-            <div class="section-header"><h3>System notifications</h3></div>
-            <div id="systemNotifications" class="system-list"><div>Dashboard loaded <time>--</time></div><div>Waiting for sensor data <time>--</time></div></div>
+            <div class="section-header">
+              <div class="section-title-wrap">
+                <span class="panel-subtitle">EVENT AUDIT</span>
+                <h3>Telemetry Activity Stream</h3>
+              </div>
+            </div>
+            <div id="systemNotifications" class="system-list">
+              <div><span class="dot success-dot"></span>Dashboard loaded <time>--</time></div>
+              <div><span class="dot success-dot"></span>Telemetry responder active <time>--</time></div>
+            </div>
           </section>
         </aside>
       </div>
 
-      <section id="about" class="panel about-panel"><h3>About this system</h3><p>This dashboard monitors a Zero Liquid Discharge water treatment process using live readings from sensors and an ESP32 microcontroller.</p></section>
+      <!-- About & System Specifications -->
+      <section id="about" class="panel about-panel">
+        <div class="about-grid">
+          <div class="about-desc">
+            <h3>Zero Liquid Discharge (ZLD) Monitoring Architecture</h3>
+            <p>
+              This enterprise-grade IoT dashboard continuously tracks zero liquid discharge operations.
+              Raw effluent is measured for pH neutralization and solids turbidity prior to membrane separation.
+              Flow transmitters on the feed, permeate recovery, and concentrate reject lines enforce strict
+              mass-balance conservation. When a flow discrepancy exceeding the configured 15% tolerance is
+              registered, an incident is instantly logged and dispatched via SMTP alert to environmental regulators.
+            </p>
+          </div>
+          <div class="about-specs">
+            <h4>System Thresholds &amp; Settings</h4>
+            <div class="spec-table">
+              <div class="spec-row"><span>Safe pH Range</span><strong>6.5 – 8.5 pH</strong></div>
+              <div class="spec-row"><span>Turbidity Warning Threshold</span><strong>500 ADC / ~5 NTU</strong></div>
+              <div class="spec-row"><span>Flow Mismatch Tolerance</span><strong>± 15.0%</strong></div>
+              <div class="spec-row"><span>Telemetry Cycle</span><strong>4 seconds (UDP/HTTP)</strong></div>
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
+
+    <!-- Audio Element for Alert Chime -->
+    <audio id="alarmAudio" preload="none"></audio>
+
     <script src="{{ url_for('static', filename='script.js') }}"></script>
   </body>
 </html>

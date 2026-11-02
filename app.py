@@ -145,7 +145,7 @@ def seed_sample_data() -> None:
                 inlet_flow, recovery_flow, reject_flow, water_level,
                 tank_percentage, pump_status,
                 inlet_total_liters, recovery_total_liters, reject_total_liters
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             samples,
         )
@@ -570,7 +570,166 @@ def latest_readings():
     payload["status"] = "online" if source == "esp32" else "sample"
     payload["flow_mismatch"] = bool(payload.get("flow_mismatch"))
     payload["flow_mismatch_details"] = payload.get("flow_mismatch_details", "")
+
+    # Calculate recovery rate and mass balance
+    inlet = payload.get("inlet_flow")
+    recovery = payload.get("recovery_flow")
+    reject = payload.get("reject_flow")
+    if inlet and recovery and float(inlet) > 0:
+        payload["recovery_rate"] = round((float(recovery) / float(inlet)) * 100, 1)
+    else:
+        payload["recovery_rate"] = 0.0
+
+    if inlet is not None and recovery is not None and reject is not None:
+        payload["mass_balance_error"] = round(abs(float(inlet) - (float(recovery) + float(reject))), 2)
+    else:
+        payload["mass_balance_error"] = 0.0
+
+    if payload.get("turbidity_raw_adc") is None and payload.get("turbidity") is not None:
+        payload["turbidity_raw_adc"] = int(float(payload["turbidity"]) * 115)
+
+    payload["thresholds"] = {
+        "ph_min": 6.5,
+        "ph_max": 8.5,
+        "ph_critical_low": 5.5,
+        "ph_critical_high": 9.5,
+        "turbidity_warning_adc": 500,
+        "turbidity_critical_adc": 800,
+        "tank_low_percent": 20,
+        "tank_high_percent": 90,
+        "flow_tolerance_percent": FLOW_MISMATCH_TOLERANCE_PERCENT,
+    }
     return jsonify(payload)
+
+
+@app.route("/api/simulate-preset", methods=["POST"])
+def simulate_preset():
+    data = request.get_json(silent=True) or {}
+    preset = data.get("preset", "normal")
+
+    presets = {
+        "normal": {
+            "ph": 7.38,
+            "turbidity": 2.4,
+            "turbidity_raw_adc": 265,
+            "inlet_flow": 4.00,
+            "recovery_flow": 3.60,
+            "reject_flow": 0.40,
+            "water_level": 14.2,
+            "tank_percentage": 72,
+            "pump_status": "ON",
+            "sensor_status": {k: "connected" for k in SENSOR_FIELDS},
+        },
+        "mismatch": {
+            "ph": 7.30,
+            "turbidity": 2.9,
+            "turbidity_raw_adc": 320,
+            "inlet_flow": 5.50,
+            "recovery_flow": 2.10,
+            "reject_flow": 0.85,
+            "water_level": 16.8,
+            "tank_percentage": 64,
+            "pump_status": "ON",
+            "sensor_status": {k: "connected" for k in SENSOR_FIELDS},
+        },
+        "high_turbidity": {
+            "ph": 8.15,
+            "turbidity": 8.8,
+            "turbidity_raw_adc": 895,
+            "inlet_flow": 3.80,
+            "recovery_flow": 2.90,
+            "reject_flow": 0.90,
+            "water_level": 15.0,
+            "tank_percentage": 58,
+            "pump_status": "ON",
+            "sensor_status": {k: "connected" for k in SENSOR_FIELDS},
+        },
+        "acidic_ph": {
+            "ph": 5.15,
+            "turbidity": 3.2,
+            "turbidity_raw_adc": 340,
+            "inlet_flow": 3.90,
+            "recovery_flow": 3.20,
+            "reject_flow": 0.70,
+            "water_level": 13.8,
+            "tank_percentage": 60,
+            "pump_status": "ON",
+            "sensor_status": {k: "connected" for k in SENSOR_FIELDS},
+        },
+        "pump_off": {
+            "ph": 7.20,
+            "turbidity": 1.8,
+            "turbidity_raw_adc": 205,
+            "inlet_flow": 0.0,
+            "recovery_flow": 0.0,
+            "reject_flow": 0.0,
+            "water_level": 19.5,
+            "tank_percentage": 88,
+            "pump_status": "OFF",
+            "sensor_status": {k: "connected" for k in SENSOR_FIELDS},
+        },
+        "unplug_ph": {
+            "ph": None,
+            "turbidity": 2.6,
+            "turbidity_raw_adc": 290,
+            "inlet_flow": 4.00,
+            "recovery_flow": 3.30,
+            "reject_flow": 0.70,
+            "water_level": 14.0,
+            "tank_percentage": 70,
+            "pump_status": "ON",
+            "sensor_status": {**{k: "connected" for k in SENSOR_FIELDS}, "ph": "unplugged"},
+        },
+    }
+
+    sim_data = presets.get(preset, presets["normal"])
+    validated = validate_payload(sim_data)
+    totals = calculate_flow_totals(validated)
+    validated.update(totals)
+    validated["source"] = "esp32"
+    validated["timestamp"] = datetime.now(timezone.utc).isoformat()
+    mismatch, mismatch_details = detect_flow_mismatch(
+        validated["inlet_flow"], validated["recovery_flow"]
+    )
+    validated["flow_mismatch"] = mismatch
+    validated["flow_mismatch_details"] = mismatch_details
+    process_flow_mismatch(validated["timestamp"], mismatch, mismatch_details)
+
+    with get_db_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO sensor_readings (
+                timestamp, source, ph, turbidity,
+                turbidity_raw_adc,
+                inlet_flow, recovery_flow, reject_flow, water_level,
+                tank_percentage, pump_status,
+                inlet_total_liters, recovery_total_liters, reject_total_liters
+                , sensor_status, flow_mismatch, flow_mismatch_details
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                validated["timestamp"],
+                validated["source"],
+                validated["ph"],
+                validated["turbidity"],
+                validated["turbidity_raw_adc"],
+                validated["inlet_flow"],
+                validated["recovery_flow"],
+                validated["reject_flow"],
+                validated["water_level"],
+                int(round(validated["tank_percentage"])) if validated["tank_percentage"] is not None else None,
+                validated["pump_status"],
+                validated["inlet_total_liters"],
+                validated["recovery_total_liters"],
+                validated["reject_total_liters"],
+                json.dumps(validated["sensor_status"]),
+                int(validated["flow_mismatch"]),
+                validated["flow_mismatch_details"],
+            ),
+        )
+        conn.commit()
+
+    return jsonify({"status": "ok", "preset": preset, "data": validated})
 
 
 @app.route("/api/discover")
